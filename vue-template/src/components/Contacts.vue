@@ -2,6 +2,7 @@
     <div class="main-container">
       <Widget>
         <template slot="title">Contacts</template>
+        <b-form-input v-model="search" @keyup.enter="applySearch" type="text" placeholder="Search" />
         <table class="table table-striped">
           <thead>
             <tr>
@@ -13,14 +14,14 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(contact, index) in pageOfItems" :key="index" @click="showModal(contact)">
+            <tr v-for="(contact, index) in filteredContacts" :key="index" @click="showModal(contact)">
               <td>{{ contact.name }}</td>
               <td>{{ contact.email }}</td>
               <td>{{ contact.address_id }}</td>
               <td>{{ contact.phone }}</td>
               <td> <!-- Add the actions here -->
-                <b-button variant="primary" class="mr-2" @click.stop="modifyContact(company)">mod</b-button>  <!-- class="mr-2" is the bootsrap class that give some margin right -->
-                <b-button variant="danger" @click.stop="deleteCompany(company)">del</b-button>
+                <b-button variant="primary" class="mr-2" @click.stop="modifyContact(contact)">mod</b-button>  <!-- class="mr-2" is the bootsrap class that give some margin right -->
+                <b-button variant="danger" @click.stop="deleteContact(contact)">del</b-button>
               </td>
             </tr>
           </tbody>
@@ -43,7 +44,14 @@
             <b-button type="submit" variant="success">Submit</b-button>
           </b-form>
         </b-modal>
-        <jw-pagination :items="contacts" :pageSize="10" @changePage="onChangePage"></jw-pagination>
+        <div class="pagination">
+          <p class="aff">Affichage: &nbsp</p>
+          <b-select v-model="itemsPerPage" :options="limitOptions" class="limit-dropdown" @input="applySearch"></b-select>
+          <b-button v-if="currentPage > 5" @click="goToPage(currentPage - 5)">&laquo;</b-button>
+          <b-button v-for="page in pageNumbers" :key="page" @click="goToPage(page)" :disabled="page === currentPage">{{ page }}</b-button>
+          <b-button v-if="currentPage < totalPageCount - 4" @click="goToPage(currentPage + 5)">&raquo;</b-button>
+          <b-select v-model="currentPage" :options="Array.from({ length: totalPageCount }, (_, i) => i + 1)" class="page-dropdown" @input="goToPage"></b-select>
+        </div>
       </Widget>
 
       <!-- ADD button -->
@@ -106,12 +114,20 @@
     data() {
       return {
         contacts: [],
+        allContacts: [],
         companies: [], // New data variable for companies
         pageOfItems: [],
         pageOfCompanyItems: [],
         selectedContact: {},
         showContactModal: false,
         showAddContactModal: false,
+        currentOffset: 0,
+        limit: 10,
+        limitOptions: [10, 20, 50],
+        search: '',
+        searchQuery: '',
+        itemsPerPage: 10,
+        currentPage: 1, 
         relatedCompanies: [], // New data variable for related companies
         newContact: { // New
           name: ''
@@ -126,13 +142,101 @@
           }
       };
     },
+    computed: {
+    totalPages() {
+      return Math.ceil(14981 / this.limit);
+    },
+    currentPage() {
+      return this.currentOffset / this.limit + 1;
+    },
+    pageNumbers() {
+    // Show 10 pages at a time
+    let startPage = Math.max(1, this.currentPage - 2);
+    let endPage = startPage + 9;
+
+    if (endPage > this.totalPageCount) {
+      endPage = this.totalPageCount;
+      startPage = Math.max(1, endPage - 4);
+    }
+
+    return Array.from({ length: endPage - startPage + 1 }, (v, i) => i + startPage);
+  },
+  filteredContacts() {
+    if (!this.searchQuery) return this.allContacts.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
+
+    const filtered = this.allContacts.filter(contact => 
+      Object.values(contact).some(value => 
+        value.toString().toLowerCase().includes(this.searchQuery.toLowerCase())
+      )
+    );
+
+    return filtered.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
+  },
+
+  filteredContactsCount() {
+    if (!this.searchQuery) return this.allContacts.length;
+
+    return this.allContacts.filter(contact => 
+      Object.values(contact).some(value => 
+        value.toString().toLowerCase().includes(this.searchQuery.toLowerCase())
+      )
+    ).length;
+  },
+
+  totalPageCount() {
+    return Math.ceil(this.filteredContactsCount / this.itemsPerPage);
+  }
+},
     methods: {
-      async fetchContacts() {
-        const token = window.localStorage.getItem('authenticated'); // Get the saved JWT token
-        axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; // Set the Authorization header
-        const response = await axios.get("http://localhost:5000/api/contacts?with_data=true&offset=0&limit=500000000000000000000000000000000");
-        console.log(response.data); // Log the data here
+      async fetchContacts(offset, limit) {
+        const token = window.localStorage.getItem('authenticated'); 
+        axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; 
+        const response = await axios.get(`http://localhost:5000/api/contacts?with_data=true&offset=${offset}&limit=${limit}`);
+        console.log(response.data);
         this.contacts = response.data;
+
+        //update pageOfItems directly when companies are fetched:
+        this.pageOfItems = this.contacts;
+      },
+      nextPage() {
+        if (this.currentPage < this.totalPageCount) {
+          this.currentPage += 1;
+        }
+      },
+      previousPage() {
+        if (this.currentPage > 1) {
+          this.currentPage -= 1;
+        }
+      },
+      goToPage(page) {
+        this.currentPage = page;
+      },
+      //code that make it so that you need to press enter
+      applySearch() {
+        this.searchQuery = this.search;
+        this.currentPage = 1; // Reset to first page whenever a new search is applied
+      },
+      async fetchAllContacts(offset = 0, limit = 200) {
+      const token = window.localStorage.getItem('authenticated'); 
+      axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; 
+
+      const response = await axios.get(`http://localhost:5000/api/contacts?with_data=true&offset=${offset}&limit=${limit}`);
+      
+      if (response.data && response.data.length) {
+        this.allContacts = [...this.allContacts, ...response.data];
+
+        // Fetch next batch of companies
+        await this.fetchAllContacts(offset + limit, limit);
+      }
+    },
+      onChangePage(pageOfItems) {
+        // update page of items
+        this.pageOfItems = pageOfItems;
+
+        // If the user has clicked next, fetch the next set of companies
+        if ((this.pageOfItems[0] || {}).id > (this.companies[0] || {}).id) {
+          this.nextPage();
+        }
       },
       // New method for fetching companies data
       async fetchCompanies() {
@@ -141,9 +245,6 @@
         const response = await axios.get("http://localhost:5000/api/companies");
         console.log(response.data);
         this.companies = response.data; // Adjust this line if the structure of the response data is different
-      },
-      onChangePage(pageOfItems) {
-        this.pageOfItems = pageOfItems;
       },
       onChangeCompPage(pageOfCompanyItems) {
         this.pageOfCompanyItems  = pageOfCompanyItems ;
@@ -198,8 +299,8 @@
       },
     },
     created() {
-      this.fetchContacts();
-    },
+    this.fetchAllContacts();
+  },
   };
   </script>
   
@@ -229,22 +330,30 @@
     justify-content: center;
     max-width: 800px;
   }
-  
-  .details-container {
+  .pagination {
+  display: flex;
+  justify-content: center; 
+}
+  .pagination button {
+    background-color: rgb(31, 87, 255);
     color: white;
-    display: flex;
-    justify-content: space-between;
-    width: 70%; 
-    margin: auto; 
   }
-  
-  .details-left, .details-right {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 40px; /* Add space at the bottom of each item */
+
+  .prev{
+    margin-right: 10px;
   }
-  
-  .details-left p, .details-right p {
-    margin-bottom: 40px; /* Add space between data points */
+  .next{
+    margin-left: 10px;
+  }
+  .limit-dropdown {
+    margin-right: 25px;
+    max-width: 70px; 
+  }
+  .page-dropdown {
+    margin-left: 25px;
+    max-width: 100px; 
+  }
+  .aff{
+    margin-top: 7px;
   }
   </style>

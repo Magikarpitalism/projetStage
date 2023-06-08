@@ -8,6 +8,8 @@ import VCalendar from 'v-calendar';
 import VueApexCharts from 'vue-apexcharts';
 import VModal from 'vue-js-modal';
 import Modal from '@/components/modal';
+import 'bootstrap/dist/css/bootstrap.css'
+import 'bootstrap-vue/dist/bootstrap-vue.css'
 
 import store from './store';
 import router from './Routes';
@@ -23,6 +25,7 @@ Vue.use(BootstrapVue);
 Vue.use(VCalendar, {
   firstDayOfWeek: 2
 });
+
 
 Vue.component('apexchart', VueApexCharts);
 Vue.mixin(layoutMixin);
