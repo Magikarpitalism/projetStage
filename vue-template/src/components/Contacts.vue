@@ -2,7 +2,9 @@
     <div class="main-container">
       <Widget>
         <template slot="title">Contacts</template>
+         <!-- A search bar. When 'Enter' is pressed, it triggers the 'applySearch' method -->
         <b-form-input v-model="search" @keyup.enter="applySearch" type="text" placeholder="Search" />
+        <!-- Table for displaying contacts data -->
         <table class="table table-striped">
           <thead>
             <tr>
@@ -14,7 +16,9 @@
             </tr>
           </thead>
           <tbody>
+            <!-- Loop through the 'filteredContacts' array, displaying each contact in a table row -->
             <tr v-for="(contact, index) in filteredContacts" :key="index" @click="showModal(contact)">
+              <!-- Data cells for each contact's name, email, address, and phone -->
               <td>{{ contact.name }}</td>
               <td>{{ contact.email }}</td>
               <td>{{ contact.address_id }}</td>
@@ -44,6 +48,7 @@
             <b-button type="submit" variant="success">Submit</b-button>
           </b-form>
         </b-modal>
+        <!-- Pagination elements for navigating through the contacts list -->
         <div class="pagination">
           <p class="aff">Affichage: &nbsp</p>
           <b-select v-model="itemsPerPage" :options="limitOptions" class="limit-dropdown" @input="applySearch"></b-select>
@@ -102,58 +107,69 @@
   </template>
   
   <script>
-  import axios from 'axios';
-  import Widget from '@/components/Widget/Widget';
-  import JwPagination from 'jw-vue-pagination';
-  import Modal from '@/components/modal';
-  import { BModal, BButton } from 'bootstrap-vue'
+  // Import required modules from different files
+  import axios from 'axios'; // To make API calls
+  import Widget from '@/components/Widget/Widget'; // Importing custom widget
+  import JwPagination from 'jw-vue-pagination'; // Pagination module
+  import Modal from '@/components/modal'; // Modal module
+  import { BModal, BButton } from 'bootstrap-vue' // Bootstrap vue components
   
   export default {
-    name: 'Contacts',
-    components: { Widget, Modal, BModal, BButton, JwPagination},
-    data() {
+    name: 'Contacts', // Component name
+    components: { 
+      Widget, 
+      Modal, 
+      BModal, 
+      BButton, 
+      JwPagination // Component imports
+    },
+    data() { // Component data
       return {
-        contacts: [],
-        allContacts: [],
-        companies: [], // New data variable for companies
-        pageOfItems: [],
-        pageOfCompanyItems: [],
-        selectedContact: {},
-        showContactModal: false,
-        showAddContactModal: false,
-        currentOffset: 0,
-        limit: 10,
-        limitOptions: [10, 20, 50],
-        search: '',
-        searchQuery: '',
-        itemsPerPage: 10,
-        currentPage: 1, 
-        relatedCompanies: [], // New data variable for related companies
-        newContact: { // New
-          name: ''
+        contacts: [], // All the contacts, initially an empty array
+        allContacts: [], // To hold all contacts fetched from API
+        companies: [], // Companies related to a contact
+        pageOfItems: [], // Data for the current page
+        pageOfCompanyItems: [], // Data for the company items in the current page
+        selectedContact: {}, // Selected contact to show its related companies
+        showContactModal: false, // Controls if the contact modal is shown or not
+        showAddContactModal: false, // Controls if the add contact modal is shown or not
+        currentOffset: 0, // To handle pagination offset
+        limit: 10, // Number of contacts per page
+        limitOptions: [10, 20, 50], // Options for number of contacts per page
+        search: '', // Search query
+        searchQuery: '', // Store the search query after pressing Enter
+        itemsPerPage: 10, // Number of items per page
+        currentPage: 1, // Current page
+        relatedCompanies: [], // Companies related to the selected contact
+        newContact: { // Data for the new contact to be added
+          name: '' 
           // Add more fields as necessary...
         },
-        showModifyContactModal: false,
-          modifiedContact: {
-            name: '',
-            email: '',
-            address_id: '',
-            phone: ''
-          }
+        showModifyContactModal: false, // Controls if the modify contact modal is shown or not
+        modifiedContact: { // Data for the contact to be modified
+          name: '',
+          email: '',
+          address_id: '',
+          phone: ''
+        }
       };
     },
     computed: {
-    totalPages() {
-      return Math.ceil(14981 / this.limit);
-    },
-    currentPage() {
-      return this.currentOffset / this.limit + 1;
-    },
-    pageNumbers() {
+  // Computes the total number of pages
+  totalPages() {
+    return Math.ceil(14981 / this.limit);
+  },
+  // Computes the current page based on the current offset
+  currentPage() {
+    return this.currentOffset / this.limit + 1;
+  },
+  // Computes the page numbers to be shown in the paginator
+  pageNumbers() {
     // Show 10 pages at a time
     let startPage = Math.max(1, this.currentPage - 2);
     let endPage = startPage + 9;
 
+    // Make sure we don't show more than the total number of pages
     if (endPage > this.totalPageCount) {
       endPage = this.totalPageCount;
       startPage = Math.max(1, endPage - 4);
@@ -161,21 +177,28 @@
 
     return Array.from({ length: endPage - startPage + 1 }, (v, i) => i + startPage);
   },
+  // Filters contacts based on the search query and then paginates the results
   filteredContacts() {
+    // If there's no search query, return paginated contacts
     if (!this.searchQuery) return this.allContacts.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
 
+    // Filter contacts by search query
     const filtered = this.allContacts.filter(contact => 
       Object.values(contact).some(value => 
         value.toString().toLowerCase().includes(this.searchQuery.toLowerCase())
       )
     );
 
+    // Paginate filtered contacts
     return filtered.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
   },
 
+  // Returns the count of the filtered contacts
   filteredContactsCount() {
+    // If there's no search query, return the total count of contacts
     if (!this.searchQuery) return this.allContacts.length;
 
+    // Otherwise, return the count of contacts that match the search query
     return this.allContacts.filter(contact => 
       Object.values(contact).some(value => 
         value.toString().toLowerCase().includes(this.searchQuery.toLowerCase())
@@ -183,124 +206,127 @@
     ).length;
   },
 
+  // Computes the total page count for the pagination
   totalPageCount() {
     return Math.ceil(this.filteredContactsCount / this.itemsPerPage);
   }
 },
     methods: {
-      async fetchContacts(offset, limit) {
-        const token = window.localStorage.getItem('authenticated'); 
-        axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; 
-        const response = await axios.get(`http://localhost:5000/api/contacts?with_data=true&offset=${offset}&limit=${limit}`);
-        console.log(response.data);
-        this.contacts = response.data;
-
-        //update pageOfItems directly when companies are fetched:
-        this.pageOfItems = this.contacts;
-      },
-      nextPage() {
-        if (this.currentPage < this.totalPageCount) {
-          this.currentPage += 1;
-        }
-      },
-      previousPage() {
-        if (this.currentPage > 1) {
-          this.currentPage -= 1;
-        }
-      },
-      goToPage(page) {
-        this.currentPage = page;
-      },
-      //code that make it so that you need to press enter
-      applySearch() {
-        this.searchQuery = this.search;
-        this.currentPage = 1; // Reset to first page whenever a new search is applied
-      },
-      async fetchAllContacts(offset = 0, limit = 200) {
-      const token = window.localStorage.getItem('authenticated'); 
-      axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; 
-
-      const response = await axios.get(`http://localhost:5000/api/contacts?with_data=true&offset=${offset}&limit=${limit}`);
-      
-      if (response.data && response.data.length) {
-        this.allContacts = [...this.allContacts, ...response.data];
-
-        // Fetch next batch of companies
-        await this.fetchAllContacts(offset + limit, limit);
-      }
-    },
-      onChangePage(pageOfItems) {
-        // update page of items
-        this.pageOfItems = pageOfItems;
-
-        // If the user has clicked next, fetch the next set of companies
-        if ((this.pageOfItems[0] || {}).id > (this.companies[0] || {}).id) {
-          this.nextPage();
-        }
-      },
-      // New method for fetching companies data
-      async fetchCompanies() {
-        const token = window.localStorage.getItem('authenticated'); // Get the saved JWT token
-        axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; // Set the Authorization header
-        const response = await axios.get("http://localhost:5000/api/companies");
-        console.log(response.data);
-        this.companies = response.data; // Adjust this line if the structure of the response data is different
-      },
-      onChangeCompPage(pageOfCompanyItems) {
-        this.pageOfCompanyItems  = pageOfCompanyItems ;
-      },
-      async showModal(contact) {
-        this.selectedContact = contact;
-        await this.fetchCompanies(); // Fetch companies data when modal is shown
-        // Filter companies by checking if the selected contact's id is in the company's contact_ids
-        this.relatedCompanies = this.companies.filter(company => company.contact_ids && company.contact_ids.includes(contact.id));
-        this.showContactModal = true;
-      },
-      modifyContact(contact) { 
-        this.modifiedContact = Object.assign({}, contact); // copy the contact data to prevent mutating the original
-        this.showModifyContactModal = true;
-      },
-      async updateContact() {
-        try {
-          await axios.put(`http://localhost:5000/api/contacts/${this.modifiedContact.id}`, this.modifiedContact);
-          let index = this.contacts.findIndex(c => c.id === this.modifiedContact.id);
-          if (index !== -1) {
-            this.contacts[index] = Object.assign({}, this.modifiedContact);
-          }
-          this.showModifyContactModal = false;
-        } catch (error) {
-          console.log(error);
-        }
-      },
-      async deleteContact(contact) {
-        // Confirm with the user that they want to delete the company
-        if (confirm(`Are you sure you want to delete ${contact.name}? This action cannot be undone.`)) {
-          // If they confirm, send a DELETE request to the server with the company's id
-          try {
-            await axios.delete(`http://localhost:5000/api/contacts/${contact.id}`);
-            // After successfully deleting the company, remove it from the companies array
-            this.contacts = this.contacts.filter(c => c.id !== contact.id);
-          } catch (error) {
-            // Handle the error...
-            console.error(error);
-          }
-        }
-      },
-      async addContact() { // New method
-        try {
-          await axios.post('http://localhost:5000/api/contacts', this.newContact);
-          this.showAddContactModal = false;
-          this.newContact.name = '';
-          this.fetchContacts();
-          // Fetch the updated contacts list here, if necessary...
-        } catch (error) {
-          console.log(error);
-        }
-      },
-    },
-    created() {
-    this.fetchAllContacts();
+  // Fetch all contacts from the API using offset and limit for pagination
+  async fetchAllContacts(offset = 0, limit = 200) {
+    // Retrieve the authentication token stored in local storage
+    const token = window.localStorage.getItem('authenticated');
+    // Set the authorization header for axios using the token
+    axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+    // Make a GET request to the API, passing in the offset and limit as query parameters
+    const response = await axios.get(`http://localhost:5000/api/contacts?with_data=true&offset=${offset}&limit=${limit}`);
+    // If response data exists and contains elements, append the response data to the allContacts array
+    if (response.data && response.data.length) {
+      this.allContacts = [...this.allContacts, ...response.data];
+      // Recursively fetch the next batch of contacts
+      await this.fetchAllContacts(offset + limit, limit);
+    }
   },
+  // Increase current page by 1 if it's not the last page
+  nextPage() {
+    if (this.currentPage < this.totalPageCount) {
+      this.currentPage += 1;
+    }
+  },
+  // Decrease current page by 1 if it's not the first page
+  previousPage() {
+    if (this.currentPage > 1) {
+      this.currentPage -= 1;
+    }
+  },
+  // Update the current page to a specific page
+  goToPage(page) {
+    this.currentPage = page;
+  },
+  // Update the searchQuery data property when a search is made
+  applySearch() {
+    this.searchQuery = this.search;
+    // Reset the current page to 1 every time a new search is applied
+    this.currentPage = 1; 
+  },
+  // Update the page of items when page changes
+  onChangePage(pageOfItems) {
+    // Update the current page of items with the new page
+    this.pageOfItems = pageOfItems;
+    // If the first item on the new page has a greater ID than the first item on the current page, go to the next page
+    if ((this.pageOfItems[0] || {}).id > (this.companies[0] || {}).id) {
+      this.nextPage();
+    }
+  },
+  // Fetch all companies data from the API
+  async fetchCompanies() {
+    const token = window.localStorage.getItem('authenticated'); // Retrieve the authentication token from local storage
+    axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; // Set the authorization header for axios using the token
+    const response = await axios.get("http://localhost:5000/api/companies"); // Send a GET request to the API endpoint for fetching companies
+    console.log(response.data);
+    this.companies = response.data; // Store the returned companies data in the companies array
+  },
+  // Update the page of company items when page changes
+  onChangeCompPage(pageOfCompanyItems) {
+    this.pageOfCompanyItems = pageOfCompanyItems; // Update the current page of company items with the new page
+  },
+  // Show modal with company related to selected contact
+  async showModal(contact) {
+    this.selectedContact = contact; // Store the selected contact
+    await this.fetchCompanies(); // Fetch companies data when modal is shown
+    // Filter companies by checking if the selected contact's id is in the company's contact_ids
+    this.relatedCompanies = this.companies.filter(company => company.contact_ids && company.contact_ids.includes(contact.id));
+    this.showContactModal = true; // Show the modal
+  },
+  // Modify the selected contact
+  modifyContact(contact) { 
+    this.modifiedContact = Object.assign({}, contact); // Copy the contact data to prevent mutating the original data
+    this.showModifyContactModal = true; // Show the modal for modifying a contact
+  },
+  // Update the selected contact
+  async updateContact() {
+    try {
+      await axios.put(`http://localhost:5000/api/contacts/${this.modifiedContact.id}`, this.modifiedContact); // Send a PUT request to update the contact
+      let index = this.contacts.findIndex(c => c.id === this.modifiedContact.id); // Find the index of the modified contact in the contacts array
+      if (index !== -1) {
+        this.contacts[index] = Object.assign({}, this.modifiedContact); // If found, replace the contact at that index with the updated contact
+      }
+      this.showModifyContactModal = false; // Hide the modal
+    } catch (error) {
+      console.log(error); // Log any errors
+    }
+  },
+  // Delete the selected contact
+  async deleteContact(contact) {
+    // Confirm with the user that they want to delete the contact
+    if (confirm(`Are you sure you want to delete ${contact.name}? This action cannot be undone.`)) {
+      // If they confirm, send a DELETE request to the server with the contact's id
+      try {
+        await axios.delete(`http://localhost:5000/api/contacts/${contact.id}`);
+        // After successfully deleting the contact, remove it from the contacts array
+        this.contacts = this.contacts.filter(c => c.id !== contact.id);
+      } catch (error) {
+        // Handle the error...
+        console.error(error);
+      }
+    }
+  },
+  // Add a new contact
+  async addContact() {
+    try {
+      await axios.post('http://localhost:5000/api/contacts', this.newContact); // Send a POST request to add the new contact
+      this.showAddContactModal = false; // Hide the add contact modal
+      this.newContact.name = ''; // Clear the new contact's name field
+      this.fetchAllContacts(); // Refresh the list of all contacts
+    } catch (error) {
+      console.log(error); // Log any errors
+    }
+  },
+},
+    created() {
+    // When the component is created, fetch all contacts
+    this.fetchAllContacts();
+    },
   };
   </script>
   
@@ -311,13 +337,11 @@
     width: 100%; 
     flex-direction: column;
   }
-  
   .table {
     color: rgba(255, 255, 255, 0.854);
     width: 100%; 
     table-layout: fixed; 
   }
-  
   .table th,
   .table td {
     padding: 1rem; 
@@ -337,13 +361,6 @@
   .pagination button {
     background-color: rgb(31, 87, 255);
     color: white;
-  }
-
-  .prev{
-    margin-right: 10px;
-  }
-  .next{
-    margin-left: 10px;
   }
   .limit-dropdown {
     margin-right: 25px;

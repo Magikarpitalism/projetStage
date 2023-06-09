@@ -1,10 +1,17 @@
 <template>
   <div class="main-container">
+  <!-- The Widget component is a type of 'container' component.
+  It's a reusable structure that can encapsulate other React components.
+  This helps in managing the UI structure, reusability, and promoting DRY (Don't Repeat Yourself) principle. -->
     <Widget>
+      <!-- Title for the widget -->
       <template slot="title">Companies</template>
+      <!-- Input field to search companies -->
       <b-form-input v-model="search" @keyup.enter="applySearch" type="text" placeholder="Search" />
+      <!-- Table to list companies -->
       <table class="table table-striped">
         <thead>
+          <!-- Table headers -->
           <tr>
             <th>Name</th>
             <th>Siret</th>
@@ -14,13 +21,16 @@
           </tr>
         </thead>
         <tbody>
+          <!-- Generate a row for each company. Use click event to open modal with company details -->
           <tr v-for="(company, index) in filteredCompanies" :key="index" @click="showModal(company)">
+            <!-- Display company details in each cell -->
             <td>{{ company.name }}</td>
             <td>{{ company.siret }}</td>
             <td>{{ company.email }}</td>
             <td>{{ company.phone }}</td>
             <td>
-              <b-button variant="primary" class="mr-2" @click.stop="modifyCompany(company)">mod</b-button>  <!-- class="mr-2" is the bootsrap class that give some margin right -->
+              <!-- Buttons for modifying and deleting a company. Use click event to open modal for modification and deletion -->
+              <b-button variant="primary" class="mr-2" @click.stop="modifyCompany(company)">mod</b-button>  
               <b-button variant="danger" @click.stop="deleteCompany(company)">del</b-button>
             </td>
           </tr>
@@ -28,6 +38,7 @@
       </table>
       <!-- Modify Company Modal -->
       <b-modal v-model="showModifyCompanyModal" title="Modify Company">
+        <!-- Form to capture updated company details -->
         <b-form @submit.prevent="updateCompany"> <!-- Add the @submit.prevent directive that will call the updateCompany method by using the v-model directive on the form inputs -->
           <b-form-group label="Name" label-for="companyName">
             <b-form-input id="companyName" v-model="modifiedCompany.name" required></b-form-input>
@@ -122,169 +133,183 @@
 </template>
 
 <script>
-import axios from 'axios';
-import Widget from '@/components/Widget/Widget';
-import JwPagination from 'jw-vue-pagination';
-import Modal from '@/components/modal';
+import axios from 'axios'; // Importing axios for making HTTP requests
+import Widget from '@/components/Widget/Widget'; // Importing Widget component
+import JwPagination from 'jw-vue-pagination'; // Importing pagination component
+import Modal from '@/components/modal'; // Importing modal component
 
 export default {
   name: 'Tables',
-  components: { Widget, Modal, JwPagination},
-  data() {
-    return {
-      companies: [],
-      allCompanies: [],
-      pageOfItems: [],
-      pageOfContactItems: [], // Add this line
-      selectedCompany: {},
-      selectedContacts: [],
-      showCompanyModal: false,
-      displayContactModal: false,
-      showAddCompanyModal: false,
-      currentOffset: 0,
-      limit: 10,
-      limitOptions: [10, 20, 50],
-      search: '',
-      searchQuery: '',
-      itemsPerPage: 10,
-      currentPage: 1, 
-      newCompany: {
+  components: { Widget, Modal, JwPagination}, // Registering components to be used in this component
+  data() { // Data function to provide reactive data
+    return { // The reactive data
+      companies: [], // Array to hold companies data fetched from the API
+      allCompanies: [], // Array to hold all companies data
+      pageOfItems: [], // Holds the current page of items
+      pageOfContactItems: [], // Holds the current page of contact items
+      selectedCompany: {}, // Object to hold data of a selected company
+      selectedContacts: [], // Array to hold contacts of a selected company
+      showCompanyModal: false, // Boolean to control the visibility of company details modal
+      displayContactModal: false, // Boolean to control the visibility of contact details modal
+      showAddCompanyModal: false, // Boolean to control the visibility of add company modal
+      currentOffset: 0, // Current offset for fetching companies
+      limit: 10, // Limit for fetching companies
+      limitOptions: [10, 20, 50], // Options for page limit
+      search: '', // Search input
+      searchQuery: '', // Applied search query
+      itemsPerPage: 10, // Items per page
+      currentPage: 1, // Current page number
+      newCompany: { // Object to hold new company data
         name: ''
-        // Add more fields as necessary...
       },
-      showModifyCompanyModal: false,
-        modifiedCompany: {
-          name: '',
-          siret: '',
-          email: '',
-          phone: ''
-        }
+      showModifyCompanyModal: false, // Boolean to control the visibility of modify company modal
+      modifiedCompany: { // Object to hold data of a company being modified
+        name: '',
+        siret: '',
+        email: '',
+        phone: ''
+      }
     };
   },
-  computed: {
-  totalPages() {
-    return Math.ceil(10973 / this.limit);
-  },
-  currentPage() {
-    return this.currentOffset / this.limit + 1;
-  },
-  pageNumbers() {
-    // Show 10 pages at a time
-    let startPage = Math.max(1, this.currentPage - 2);
-    let endPage = startPage + 9;
+  computed: { // Computed properties
+    totalPages() { // Total number of pages
+      return Math.ceil(10973 / this.limit);
+    },
+    currentPage() { // Calculating current page
+      return this.currentOffset / this.limit + 1;
+    },
+    pageNumbers() { // Calculate the range of page numbers to show in the pagination
+      let startPage = Math.max(1, this.currentPage - 2);
+      let endPage = startPage + 9;
+      if (endPage > this.totalPageCount) {
+        endPage = this.totalPageCount;
+        startPage = Math.max(1, endPage - 4);
+      }
+      return Array.from({ length: endPage - startPage + 1 }, (v, i) => i + startPage);
+    },
+    filteredCompanies() { // Filtered companies based on search query
+      // If no search query, return current page of companies
+      if (!this.searchQuery) return this.allCompanies.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
+      
+      // If search query, filter all companies based on the query
+      const filtered = this.allCompanies.filter(company => 
+        Object.values(company).some(value => 
+          value.toString().toLowerCase().includes(this.searchQuery.toLowerCase())
+        )
+      );
+      return filtered.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
+    },
 
-    if (endPage > this.totalPageCount) {
-      endPage = this.totalPageCount;
-      startPage = Math.max(1, endPage - 4);
-    }
+    filteredCompaniesCount() { // Count of filtered companies
+      if (!this.searchQuery) return this.allCompanies.length;
 
-    return Array.from({ length: endPage - startPage + 1 }, (v, i) => i + startPage);
-  },
-  filteredCompanies() {
-    if (!this.searchQuery) return this.allCompanies.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
-
-    const filtered = this.allCompanies.filter(company => 
-      Object.values(company).some(value => 
-        value.toString().toLowerCase().includes(this.searchQuery.toLowerCase())
-      )
-    );
-
-    return filtered.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
-  },
-
-  filteredCompaniesCount() {
-    if (!this.searchQuery) return this.allCompanies.length;
-
-    return this.allCompanies.filter(company => 
-      Object.values(company).some(value => 
-        value.toString().toLowerCase().includes(this.searchQuery.toLowerCase())
-      )
-    ).length;
-  },
-
+      // If search query, count all companies that match the query
+      return this.allCompanies.filter(company => 
+        Object.values(company).some(value =>
+          value.toString().toLowerCase().includes(this.searchQuery.toLowerCase())
+        )
+      ).length;
+    },
   totalPageCount() {
     return Math.ceil(this.filteredCompaniesCount / this.itemsPerPage);
   }
 },
   methods: {
-    async fetchCompanies(offset, limit) {
-      const token = window.localStorage.getItem('authenticated'); 
-      axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; 
-      const response = await axios.get(`http://localhost:5000/api/companies?with_data=true&offset=${offset}&limit=${limit}`);
-      console.log(response.data);
-      this.companies = response.data;
-
-      //update pageOfItems directly when companies are fetched:
-      this.pageOfItems = this.companies;
-    },
-    nextPage() {
-      if (this.currentPage < this.totalPageCount) {
-        this.currentPage += 1;
-      }
-    },
-    previousPage() {
-      if (this.currentPage > 1) {
-        this.currentPage -= 1;
-      }
-    },
-    goToPage(page) {
-      this.currentPage = page;
-    },
-    //code that make it so that you need to press enter
-    applySearch() {
-      this.searchQuery = this.search;
-      this.currentPage = 1; // Reset to first page whenever a new search is applied
-    },
-    async fetchAllCompanies(offset = 0, limit = 200) {
-    const token = window.localStorage.getItem('authenticated'); 
-    axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; 
+  // Method to fetch all companies from the API
+  // This method will fetch in batches until no more companies are returned
+  async fetchAllCompanies(offset = 0, limit = 200) {
+    const token = window.localStorage.getItem('authenticated'); // Get the saved JWT token
+    axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; // Set the Authorization header
 
     const response = await axios.get(`http://localhost:5000/api/companies?with_data=true&offset=${offset}&limit=${limit}`);
     
+    // If the response contains companies, add them to the allCompanies array
     if (response.data && response.data.length) {
       this.allCompanies = [...this.allCompanies, ...response.data];
 
-      // Fetch next batch of companies
+      // Fetch the next batch of companies
       await this.fetchAllCompanies(offset + limit, limit);
     }
   },
-    onChangePage(pageOfItems) {
-      // update page of items
-      this.pageOfItems = pageOfItems;
+  // Method to go to the next page
+  nextPage() {
+    if (this.currentPage < this.totalPageCount) {
+      this.currentPage += 1;
+    }
+  },
+  // Method to go to the previous page
+  previousPage() {
+    if (this.currentPage > 1) {
+      this.currentPage -= 1;
+    }
+  },
+  // Method to navigate to a specific page
+  goToPage(page) {
+    this.currentPage = page;
+  },
+  // Method to apply the search
+  applySearch() {
+    this.searchQuery = this.search;
+    this.currentPage = 1; // Reset to first page whenever a new search is applied
+  },
+  // Method to handle page change
+  // It updates the pageOfItems and fetches the next set of companies if necessary
+  onChangePage(pageOfItems) {
+    // update page of items
+    this.pageOfItems = pageOfItems;
 
-      // If the user has clicked next, fetch the next set of companies
-      if ((this.pageOfItems[0] || {}).id > (this.companies[0] || {}).id) {
-        this.nextPage();
-      }
-    },
-    onChangeContactPage(pageOfContactItems) { // Add this method
-      this.pageOfContactItems = pageOfContactItems;
-    },
-    showModal(company) {
-      this.selectedCompany = company;
-      this.showCompanyModal = true;
-    },
-    async addCompany() {
+    // If the user has clicked next, fetch the next set of companies
+    if ((this.pageOfItems[0] || {}).id > (this.companies[0] || {}).id) {
+      this.nextPage();
+    }
+  },
+  // Method to handle contact page change
+  // It updates the pageOfContactItems
+  onChangeContactPage(pageOfContactItems) {
+    this.pageOfContactItems = pageOfContactItems;
+  },
+  // Method to display company modal
+  showModal(company) {
+    this.selectedCompany = company; // Set the selected company
+    this.showCompanyModal = true; // Show the company modal
+  },
+// This method is used to add a new company. It's an asynchronous function, meaning it returns a Promise.
+async addCompany() {
       try {
+        // Here we send a POST request to the server with the new company data. This data is stored in the `newCompany` object.
+        // The server is expected to create a new company with this data and return a response.
         await axios.post('http://localhost:5000/api/companies', this.newCompany);
+        // If the request was successful, we hide the add company modal by setting `showAddCompanyModal` to false
         this.showAddCompanyModal = false;
+        // We also clear the name of the new company
         this.newCompany.name = '';
-        // Fetch the updated companies list here, if necessary...
+        // If necessary, we could fetch the updated list of companies here. This would allow us to display the newly added company without requiring the user to refresh the page.
+        // However, this is not implemented in this script.
       } catch (error) {
+        // If there was an error with the request, we log it to the console.
         console.log(error);
       }
     },
+    // This asynchronous method fetches contact data by their IDs
     async fetchContactsByIds(ids) {
+      // First, we get the authentication token from the local storage
       const token = window.localStorage.getItem('authenticated'); // Get the saved JWT token
+      // We set the Authorization header for the axios requests
       axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; // Set the Authorization header
+      // Then, we send a GET request to the server to fetch the contacts
       const response = await axios.get("http://localhost:5000/api/contacts");
-      // Assuming the response data is an array of contacts
+      // We assume the response data is an array of contacts. We filter this array to only keep the contacts whose IDs are included in the `ids` parameter.
+      // The `ids` parameter is expected to be an array of IDs.
       this.selectedContacts = response.data.flat().filter(contact => ids.includes(contact.id));
     },
+    // This asynchronous method displays the contact modal for a given company
     async showContactModal(company) {
+      // We first log a message to the console for debugging purposes
       console.log("Opening contacts modal");
-      // fetch contacts and other logic
+      // Then, we fetch the contacts of the given company using the `fetchContactsByIds` method. 
+      // The `contact_ids` property of the company is expected to be an array of IDs.
       await this.fetchContactsByIds(company.contact_ids);
+      // Once the contacts have been fetched, we display the contact modal by setting `displayContactModal` to true
       this.displayContactModal = true;
     },
     modifyCompany(company) {
@@ -320,6 +345,7 @@ export default {
     },
   },
   created() {
+    // Fetch all companies as soon as the Vue instance is created.
     this.fetchAllCompanies();
   },
 };
@@ -400,13 +426,6 @@ justify-content: center;
 .pagination button {
   background-color: rgb(31, 87, 255);
   color: white;
-}
-
-.prev{
-  margin-right: 10px;
-}
-.next{
-  margin-left: 10px;
 }
 .limit-dropdown {
   margin-right: 25px;
