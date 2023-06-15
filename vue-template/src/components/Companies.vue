@@ -137,12 +137,18 @@ import axios from 'axios'; // Importing axios for making HTTP requests
 import Widget from '@/components/Widget/Widget'; // Importing Widget component
 import JwPagination from 'jw-vue-pagination'; // Importing pagination component
 import Modal from '@/components/modal'; // Importing modal component
+import { openDB } from 'idb';
 
 export default {
   name: 'Tables',
   components: { Widget, Modal, JwPagination}, // Registering components to be used in this component
   data() { // Data function to provide reactive data
     return { // The reactive data
+      dbPromise: openDB('companyDB', 1, { // Open a database and create a store named 'companies'
+                upgrade(db) {
+                    db.createObjectStore('companies', { keyPath: 'id' });
+                },
+            }),
       companies: [], // Array to hold companies data fetched from the API
       allCompanies: [], // Array to hold all companies data
       pageOfItems: [], // Holds the current page of items
@@ -218,16 +224,22 @@ export default {
   // Method to fetch all companies from the API
   // This method will fetch in batches until no more companies are returned
   async fetchAllCompanies(offset = 0, limit = 200) {
-    const token = window.localStorage.getItem('authenticated'); // Get the saved JWT token
-    axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; // Set the Authorization header
+    const token = window.localStorage.getItem('authenticated'); 
+    axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; 
 
     const response = await axios.get(`http://localhost:5000/api/companies?with_data=true&offset=${offset}&limit=${limit}`);
-    
-    // If the response contains companies, add them to the allCompanies array
-    if (response.data && response.data.length) {
-      this.allCompanies = [...this.allCompanies, ...response.data];
 
-      // Fetch the next batch of companies
+    if (response.data) {
+      const db = await this.dbPromise;
+      const tx = db.transaction('companies', 'readwrite');
+      const store = tx.objectStore('companies');
+      response.data.forEach(company => store.put(company));
+
+      this.allCompanies = [...this.allCompanies, ...response.data];
+    }
+    
+    // If response.data.length equals limit, it means that there might be more companies to fetch.
+    if (response.data.length === limit) {
       await this.fetchAllCompanies(offset + limit, limit);
     }
   },
@@ -344,10 +356,13 @@ async addCompany() {
       }
     },
   },
-  created() {
-    // Fetch all companies as soon as the Vue instance is created.
-    this.fetchAllCompanies();
-  },
+  async created() {
+        const db = await this.dbPromise;
+        this.allCompanies = await db.getAll('companies'); // Get all companies from IndexedDB when the component is created
+        if (this.allCompanies.length === 0) { // If no companies in IndexedDB, fetch them from API
+            await this.fetchAllCompanies();
+        }
+    },
 };
 </script>
 

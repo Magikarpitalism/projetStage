@@ -26,7 +26,6 @@ Vue.use(VCalendar, {
   firstDayOfWeek: 2
 });
 
-
 Vue.component('apexchart', VueApexCharts);
 Vue.mixin(layoutMixin);
 Vue.use(Toasted, {duration: 10000});
