@@ -162,7 +162,7 @@ export default {
   },
   computed: {
 // Computes the total number of pages
-totalPages() {
+totalPages() { 
   return Math.ceil(14981 / this.limit);
 },
 // Computes the current page based on the current offset
