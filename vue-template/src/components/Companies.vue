@@ -7,7 +7,7 @@
       <!-- Title for the widget -->
       <template slot="title">Companies</template>
       <!-- Input field to search companies -->
-      <b-form-input v-model="search" @keyup.enter="applySearch" type="text" placeholder="Search" />
+      <b-form-input v-model="search" @input="applySearch" type="text" placeholder="Search" />
       <!-- Table to list companies -->
       <table class="table table-striped">
         <thead>
@@ -195,24 +195,24 @@ export default {
     },
     filteredCompanies() { // Filtered companies based on search query
       // If no search query, return current page of companies
-      if (!this.searchQuery) return this.allCompanies.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
+      if (!this.search) return this.allCompanies.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
       
       // If search query, filter all companies based on the query
       const filtered = this.allCompanies.filter(company => 
         Object.values(company).some(value => 
-          value.toString().toLowerCase().includes(this.searchQuery.toLowerCase())
+          value.toString().toLowerCase().includes(this.search.toLowerCase())
         )
       );
       return filtered.slice((this.currentPage - 1) * this.itemsPerPage, this.currentPage * this.itemsPerPage);
     },
 
     filteredCompaniesCount() { // Count of filtered companies
-      if (!this.searchQuery) return this.allCompanies.length;
+      if (!this.search) return this.allCompanies.length;
 
       // If search query, count all companies that match the query
       return this.allCompanies.filter(company => 
         Object.values(company).some(value =>
-          value.toString().toLowerCase().includes(this.searchQuery.toLowerCase())
+          value.toString().toLowerCase().includes(this.search.toLowerCase())
         )
       ).length;
     },
@@ -261,7 +261,6 @@ export default {
   },
   // Method to apply the search
   applySearch() {
-    this.searchQuery = this.search;
     this.currentPage = 1; // Reset to first page whenever a new search is applied
   },
   // Method to handle page change
