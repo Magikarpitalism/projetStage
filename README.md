@@ -52,3 +52,7 @@ yarn install
 ```shell
 yarn serve
 ```
+
+## lancement subsequent
+
+A chaque fois que vous relancerez le projet, répétez les étapes 2 à 6, 8 et 10.
